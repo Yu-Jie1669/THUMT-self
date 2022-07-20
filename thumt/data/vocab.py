@@ -9,7 +9,9 @@ from typing import Union
 
 
 class Vocabulary(object):
-
+    """
+    词表 两个字典
+    """
     def __init__(self, filename):
         self._idx2word = {}
         self._word2idx = {}

@@ -72,7 +72,7 @@ class MTPipeline(object):
         boundaries = bucket_boundaries(max_length)
         batch_sizes = [max(1, batch_size // (x - 1))
                        if not params.fixed_batch_size else batch_size
-                       for x in boundaries] + [1]
+                       for x in boundaries] + [1]  # ???
 
         dataset = Dataset.bucket_by_sequence_length(
             dataset, boundaries, batch_sizes, pad=src_vocab[params.pad],

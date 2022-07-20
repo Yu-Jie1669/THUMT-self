@@ -27,6 +27,16 @@ class AttentionSubLayer(modules.Module):
             self.layer_norm = modules.LayerNorm(params.hidden_size)
 
     def forward(self, x, bias, memory=None, state=None):
+        """
+        Args:
+            x: [batch,length,hiding_size]
+            bias: [batch,1,1,length]
+            memory:
+            state:
+
+        Returns:
+
+        """
         if self.normalization == "before":
             y = self.layer_norm(x)
         else:
@@ -86,6 +96,12 @@ class TransformerEncoderLayer(modules.Module):
             self.feed_forward = FFNSubLayer(params)
 
     def forward(self, x, bias):
+        """
+        Args:
+            x: [batch,length,hiding_size]
+            bias: [batch,1,1,length]
+        Returns:
+        """
         x = self.self_attention(x, bias)
         x = self.feed_forward(x)
         return x
@@ -127,6 +143,12 @@ class TransformerEncoder(modules.Module):
                 self.layer_norm = None
 
     def forward(self, x, bias):
+        """
+        Args:
+            x: [batch,length,hiding_size]
+            bias: [batch,1,1,length]
+        Returns:
+        """
         for layer in self.layers:
             x = layer(x, bias)
 
@@ -251,10 +273,17 @@ class Transformer(modules.Module):
         enc_attn_bias = self.masking_bias(src_mask)
 
         inputs = torch.nn.functional.embedding(src_seq, self.src_embedding)
+        """
+        inputs:[batch_size,length,hidden_size(embedding):512]
+        """
         inputs = inputs * (self.hidden_size ** 0.5)
         inputs = inputs + self.bias
+        """
+        encoding:positional_encoding
+        """
         inputs = nn.functional.dropout(self.encoding(inputs), self.dropout,
                                        self.training)
+
 
         enc_attn_bias = enc_attn_bias.to(inputs)
         encoder_output = self.encoder(inputs, enc_attn_bias)
@@ -268,11 +297,18 @@ class Transformer(modules.Module):
         tgt_seq = features["target"]
 
         enc_attn_bias = state["enc_attn_bias"]
+        """
+        dec_attn_bias: [1,1,length,length]
+        """
         dec_attn_bias = self.causal_bias(tgt_seq.shape[1])
 
         targets = torch.nn.functional.embedding(tgt_seq, self.tgt_embedding)
         targets = targets * (self.hidden_size ** 0.5)
 
+        """
+        cat( zeros(batch,1,hiding_size), target(batch,1:,hiding_size) ,dim=1 )
+        即把target第二维第一个向量都换成0，因为是自回归模型
+        """
         decoder_input = torch.cat(
             [targets.new_zeros([targets.shape[0], 1, targets.shape[-1]]),
              targets[:, 1:, :]], dim=1)
@@ -297,6 +333,10 @@ class Transformer(modules.Module):
         return logits, state
 
     def forward(self, features, labels, mode="train", level="sentence"):
+        """
+        features['source']:[batch_size,length]
+        """
+
         mask = features["target_mask"]
 
         state = self.empty_state(features["target"].shape[0],

@@ -25,12 +25,32 @@ import thumt.utils.summary as summary
 
 
 def parse_args(args=None):
+    """
+    argparse是一个Python模块：命令行选项、参数和子命令解析器。
+    主要有三个步骤：
+    创建 ArgumentParser() 对象
+    调用 add_argument() 方法添加参数
+    使用 parse_args() 解析添加的参数
+    """
     parser = argparse.ArgumentParser(
         description="Train a neural machine translation model.",
         usage="trainer.py [<args>] [-h | --help]"
     )
 
     # input files
+    """
+    name or flags - 一个命名或者一个选项字符串的列表，例如 foo 或 -f, --foo。
+    action - 当参数在命令行中出现时使用的动作基本类型。
+    nargs - 命令行参数应当消耗的数目。
+    const - 被一些 action 和 nargs 选择所需求的常数。
+    default - 当参数未在命令行中出现时使用的值。
+    type - 命令行参数应当被转换成的类型。
+    choices - 可用的参数的容器。
+    required - 此命令行选项是否可省略 （仅选项可用）。
+    help - 一个此选项作用的简单描述。
+    metavar - 在使用方法消息中使用的参数值示例。
+    dest - 被添加到 parse_args() 所返回对象上的属性名。
+    """
     parser.add_argument("--input", type=str, nargs=2,
                         help="Path to source and target corpus.")
     parser.add_argument("--output", type=str, default="train",
@@ -58,6 +78,9 @@ def parse_args(args=None):
     parser.add_argument("--parameters", type=str, default="",
                         help="Additional hyper-parameters.")
 
+    """
+    从命令行参数中解析出来
+    """
     return parser.parse_args(args)
 
 
@@ -352,18 +375,20 @@ def main(args):
     # default -> saved -> command
     params = default_params()
     params = merge_params(params, model_cls.default_params(args.hparam_set))
+    # 导入配置文件
     params = import_params(args.output, args.model, params)
+    # 构造词表
     params = override_params(params, args)
 
     # Initialize distributed utility
     if args.distributed:
         params.device = args.local_rank
-        dist.init_process_group("nccl")
+        dist.init_process_group("gloo")
         torch.cuda.set_device(args.local_rank)
         torch.set_default_tensor_type(torch.cuda.FloatTensor)
     else:
         params.device = params.device_list[args.local_rank]
-        dist.init_process_group("nccl", init_method=args.url,
+        dist.init_process_group("gloo", init_method=args.url,
                                 rank=args.local_rank,
                                 world_size=len(params.device_list))
         torch.cuda.set_device(params.device_list[args.local_rank])
@@ -375,6 +400,7 @@ def main(args):
         export_params(params.output, "%s.json" % params.model,
                       collect_params(params, model_cls.default_params()))
 
+    # 将模型加载到GPU
     model = model_cls(params).cuda()
 
     if args.half:
@@ -382,6 +408,7 @@ def main(args):
         torch.set_default_dtype(torch.half)
         torch.set_default_tensor_type(torch.cuda.HalfTensor)
 
+    # 设置模型（包括所有子模型）train=True
     model.train()
 
     # Init tensorboard
@@ -449,6 +476,7 @@ def main(args):
             counter += 1
             t = time.time()
             loss = train_fn(features)
+
             gradients = optimizer.compute_gradients(loss,
                                                     list(model.parameters()))
             grads_and_vars = exclude_variables(
@@ -476,6 +504,7 @@ def main(args):
                     return
 
                 if step % params.eval_steps == 0:
+
                     utils.evaluate(model, sorted_key, eval_dataset,
                                    params.output, references, params)
 
@@ -505,6 +534,7 @@ def cli_main():
             url = "tcp://localhost:" + str(port)
             parsed_args.url = url
 
+        # 显卡数量
         world_size = infer_gpu_num(parsed_args.parameters)
 
         if world_size > 1:

@@ -83,6 +83,15 @@ class LSTMCell(Module):
         self.reset_parameters()
 
     def forward(self, x, state):
+        """
+        Args:
+            x:
+            state:
+
+        Returns:
+
+        """
+        # h:[batch_size,hidden_size]
         c, h = state
 
         gates = self.gates(torch.cat([x, h], 1))

@@ -60,6 +60,11 @@ class Optimizer(object):
     def detach_gradients(self, gradients):
         for grad in gradients:
             if grad is not None:
+                """
+                detach()返回一个新的tensor，是从当前计算图中分离下来的，但是仍指向原变量的存放位置，
+                其grad_fn=None且requires_grad=False，得到的这个tensor永远不需要计算其梯度，
+                不具有梯度grad，即使之后重新将它的requires_grad置为true,它也不会具有梯度grad。
+                """
                 grad.detach_()
 
     def scale_gradients(self, gradients, scale):

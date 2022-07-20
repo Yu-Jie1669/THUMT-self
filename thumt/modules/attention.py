@@ -87,6 +87,15 @@ class MultiHeadAttentionBase(Module):
 
     @staticmethod
     def split_heads(x, heads):
+        """
+        Args:
+            x: [batch,length,hiding_size]
+            heads:
+
+        Returns:
+            [batch,head,length,hiding_size//head]
+        """
+
         batch = x.shape[0]
         length = x.shape[1]
         channels = x.shape[2]
@@ -129,6 +138,16 @@ class MultiHeadAttention(MultiHeadAttentionBase):
         self.reset_parameters()
 
     def forward(self, query, bias, memory=None, kv=None):
+        """
+        Args:
+            query: [batch,length,hiding_size]
+            bias: [batch,1,1,length]
+            memory:
+            kv:
+
+        Returns:
+
+        """
         q = self.q_transform(query)
 
         if memory is not None:
@@ -150,6 +169,9 @@ class MultiHeadAttention(MultiHeadAttentionBase):
                 v = torch.cat([kv[1], v], dim=1)
 
         # split heads
+        """
+        [batch,length,hiding_size] -> [batch,head,length,hiding_size//head]
+        """
         qh = self.split_heads(q, self.num_heads)
         kh = self.split_heads(k, self.num_heads)
         vh = self.split_heads(v, self.num_heads)
@@ -158,6 +180,9 @@ class MultiHeadAttention(MultiHeadAttentionBase):
         qh = qh * (self.hidden_size // self.num_heads) ** -0.5
 
         # dot-product attention
+        """
+        [batch,head,length,hiding_size//head] -> [batch,head,hiding_size//head,length]
+        """
         kh = torch.transpose(kh, -2, -1)
         logits = torch.matmul(qh, kh)
 
