@@ -1,4 +1,4 @@
-source /home/linyujie/anaconda3/etc/profile.d/conda.sh  # 关键！！！
+conda init
 
 conda activate py37
 
