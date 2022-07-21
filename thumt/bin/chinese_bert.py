@@ -27,7 +27,7 @@ import thumt.utils.summary as summary
 
 # input_path = "../../data/chinese/film.txt"
 # vocab_path = "../../data/chinese/vocab.txt"
-from thumt.dataset.film_dataset import FilmDataset
+import thumt.dataset as dataset
 
 
 def parse_args(args=None):
@@ -442,15 +442,16 @@ def main(args):
                                       dist.get_rank() == 0)
 
     t = time.time()
-    dataset = FilmDataset(input_path=params.input, max_len=512, params=params,
+
+    train_dataset = dataset.FilmDataset(input_path=params.input, max_len=512, params=params,
                           vocab_path=params.vocab)  # vocab 需要绝对路径
-    train_loader = DataLoader(dataset=dataset, batch_size=params.batch_size, shuffle=True)
+    train_loader = DataLoader(dataset=train_dataset, batch_size=params.batch_size, shuffle=True)
     t = time.time() - t
     print("train_data load successfully  (%.3f sec)" % t)
 
     if params.validation:
         t = time.time()
-        eval_dataset = FilmDataset(input_path=params.validation, max_len=512, params=params,
+        eval_dataset = dataset.FilmDataset(input_path=params.validation, max_len=512, params=params,
                                    vocab_path=params.vocab)
         eval_loader = DataLoader(dataset=eval_dataset, batch_size=params.batch_size, shuffle=False)
         t = time.time() - t
