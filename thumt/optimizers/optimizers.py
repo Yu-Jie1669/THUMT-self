@@ -22,7 +22,8 @@ def _save_summary(grads_and_vars):
         if grad is None:
             continue
 
-        _, var = var
+        tensor_name, var = var
+        var.tensor_name=tensor_name
         grad_norm = grad.data.norm()
         total_norm += grad_norm ** 2
         summary.histogram(var.tensor_name, var,

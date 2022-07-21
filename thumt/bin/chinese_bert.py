@@ -351,12 +351,12 @@ def evaluate(model, eval_loader):
     # 设定模式为验证模式
     model.eval()
     # 设定不会有梯度的改变仅作验证
-    mlm_l_avg = 0;
+    mlm_l_avg = 0
     nsp_l_avg = 0
     l_avg = 0
+    mlm_precision_avg = 0
+    nsp_precision_avg = 0
     with torch.no_grad():
-        correct = 0
-        total = 0
         for step, inputs in enumerate(eval_loader):
             print("Dev Step[{}/{}]".format(step + 1, len(eval_loader)))
             # input_ids, token_type_ids, attention_mask, labels = input_ids.to(device), token_type_ids.to(
@@ -371,18 +371,22 @@ def evaluate(model, eval_loader):
 
             bias = [example[-1] for example in inputs]
 
-            mlm_l, nsp_l, l = model(train_data, segments, bias, mlm_weights,
-                                    nsp_labels, mlm_labels,
-                                    pred_positions=pred_positions)
+            mlm_l, nsp_l, l, mlm_precision, nsp_precision = model(train_data, segments, bias, mlm_weights,
+                                                                  nsp_labels, mlm_labels,
+                                                                  pred_positions=pred_positions)
             mlm_l_avg += mlm_l
             nsp_l_avg += nsp_l
             l_avg += l
+            mlm_precision_avg += mlm_precision
+            nsp_precision_avg += nsp_precision
 
         mlm_l_avg /= len(eval_loader)
         nsp_l_avg /= len(eval_loader)
         l_avg /= len(eval_loader)
+        mlm_precision_avg /= len(eval_loader)
+        nsp_precision_avg /= len(eval_loader)
 
-        return mlm_l_avg, nsp_l_avg, l_avg
+        return mlm_l_avg, nsp_l_avg, l_avg, mlm_precision_avg, nsp_precision_avg
 
 
 def main(args):
@@ -391,6 +395,7 @@ def main(args):
     params = default_params()
     params = merge_params(params, model_cls.default_params(args.hparam_set))
     params = import_params(args.output, args.model, params)
+
     # 词表（word2id,id2word)
     params = override_params(params, args)
 
@@ -438,7 +443,7 @@ def main(args):
 
     t = time.time()
     dataset = FilmDataset(input_path=params.input, max_len=512, params=params,
-                          vocab_path=r"F:\THUMT\data\chinese\vocab.txt")
+                          vocab_path=params.vocab)  # vocab 需要绝对路径
     train_loader = DataLoader(dataset=dataset, batch_size=params.batch_size, shuffle=True)
     t = time.time() - t
     print("train_data load successfully  (%.3f sec)" % t)
@@ -446,19 +451,10 @@ def main(args):
     if params.validation:
         t = time.time()
         eval_dataset = FilmDataset(input_path=params.validation, max_len=512, params=params,
-                                   vocab_path=r"F:\THUMT\data\chinese\vocab.txt")
+                                   vocab_path=params.vocab)
         eval_loader = DataLoader(dataset=eval_dataset, batch_size=params.batch_size, shuffle=False)
         t = time.time() - t
         print("dev_data load successfully  (%.3f sec)" % t)
-
-    # if params.validation:
-    #     sorted_key, eval_dataset = data.MTPipeline.get_infer_dataset(
-    #         params.validation, params)
-    #     references = load_references(params.references)
-    # else:
-    #     sorted_key = None
-    #     eval_dataset = None
-    #     references = None
 
     # Load checkpoint
     checkpoint = utils.latest_checkpoint(params.output)
@@ -503,11 +499,11 @@ def main(args):
 
         bias = inputs[-1]
 
-        mlm_l, nsp_l, l = model(train_data, segments, bias, mlm_weights,
-                                nsp_labels, mlm_labels,
-                                pred_positions=pred_positions)
+        mlm_l, nsp_l, l, mlm_precision, nsp_precision = model(train_data, segments, bias, mlm_weights,
+                                                              nsp_labels, mlm_labels,
+                                                              pred_positions=pred_positions)
 
-        return mlm_l, nsp_l, l
+        return mlm_l, nsp_l, l, mlm_precision, nsp_precision
 
     counter = 0
 
@@ -521,7 +517,7 @@ def main(args):
             counter += 1
             t = time.time()
 
-            mlm_l, nsp_l, loss = train_fn(features)
+            mlm_l, nsp_l, loss, mlm_precision, nsp_precision = train_fn(features)
 
             gradients = optimizer.compute_gradients(loss,
                                                     list(model.parameters()))
@@ -535,16 +531,18 @@ def main(args):
             summary.scalar("loss", loss, step, write_every_n_steps=1)
             summary.scalar("global_step/sec", t, step)
 
-            print("epoch = %d, step = %d, loss = %.3f (%.3f sec)" %
-                  (epoch + 1, step, float(loss), t))
+            print("epoch = %d, step = %d, loss = %.3f mlm_precision = %.3f, nsp_precision = %.3f (%.3f sec)" %
+                  (epoch + 1, step, float(loss), float(mlm_precision), float(nsp_precision), t))
 
             if counter % params.update_cycle == 0:
                 if params.validation and step >= params.train_steps:
-                    mlm_l_avg, nsp_l_avg, l_avg = evaluate(model, eval_loader)
+                    mlm_l_avg, nsp_l_avg, l_avg, mlm_precision_avg, nsp_precision_avg = evaluate(model, eval_loader)
                     save_checkpoint(step, epoch, model, optimizer, params)
 
-                    print("validation mlm_l_avg = %.3f, nsp_l_avg = %.3f, l_avg = %.3f" %
-                          (mlm_l_avg, nsp_l_avg, l_avg))
+                    print(
+                        "validation mlm_l_avg = %.3f, nsp_l_avg = %.3f, l_avg = %.3f, mlm_precision_avg = %.3f, nsp_precision_avg =%.3f " %
+                        (float(mlm_l_avg), float(nsp_l_avg), float(l_avg), float(mlm_precision_avg),
+                         float(nsp_precision_avg)))
 
                     if dist.get_rank() == 0:
                         summary.close()
@@ -552,9 +550,11 @@ def main(args):
                     return
 
                 if params.validation and step % params.eval_steps == 0:
-                    mlm_l_avg, nsp_l_avg, l_avg = evaluate(model, eval_loader)
-                    print("validation mlm_l_avg = %.3f, nsp_l_avg = %.3f, l_avg = %.3f" %
-                          (mlm_l_avg, nsp_l_avg, l_avg))
+                    mlm_l_avg, nsp_l_avg, l_avg, mlm_precision_avg, nsp_precision_avg = evaluate(model, eval_loader)
+                    print(
+                        "validation mlm_l_avg = %.3f, nsp_l_avg = %.3f, l_avg = %.3f, mlm_precision_avg = %.3f, nsp_precision_avg =%.3f " %
+                        (float(mlm_l_avg), float(nsp_l_avg), float(l_avg), float(mlm_precision_avg),
+                         float(nsp_precision_avg)))
 
                 if step % params.save_checkpoint_steps == 0:
                     save_checkpoint(step, epoch, model, optimizer, params)

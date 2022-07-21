@@ -27,6 +27,7 @@ class BERTEncoder(modules.Module):
             # output_size = input_size * hidden_size(embedding_dim)
             self.token_embedding = nn.Embedding(vocab_size, params.hidden_size)
             self.segment_embedding = nn.Embedding(2, params.hidden_size)
+
             self.pos_embedding = PositionalEmbedding()
 
             self.layers = nn.ModuleList(
@@ -58,9 +59,12 @@ class MaskLM(modules.Module):
 
     def __init__(self, params, name='mask_lm'):
         super(MaskLM, self).__init__(name=name)
+
         self.vacob_size = 21128
-        # 参数：input_size,hidden_size,output_size（词表大小）,dropout*
-        self.mlp = modules.FeedForward(params.hidden_size, params.hidden_size, self.vacob_size)
+
+        with utils.scope(name):
+            # 参数：input_size,hidden_size,output_size（词表大小）,dropout*
+            self.mlp = modules.FeedForward(params.hidden_size, params.hidden_size, self.vacob_size)
 
     def forward(self, x, pred_positions):
         """
@@ -91,7 +95,9 @@ class MaskLM(modules.Module):
 class NextSentencePred(modules.Module):
     def __init__(self, params, name="nsp"):
         super(NextSentencePred, self).__init__(name=name)
-        self.output = nn.Linear(params.hidden_size, 2)
+
+        with utils.scope(name):
+            self.output = nn.Linear(params.hidden_size, 2)
 
     def forward(self, x):
         # [batch_size,hidden_size]
@@ -101,17 +107,19 @@ class NextSentencePred(modules.Module):
 class BERTModel(modules.Module):
     def __init__(self, params, name="bert"):
         super(BERTModel, self).__init__(name=name)
-        self.encoder = BERTEncoder(params)
-        self.hidden = nn.Sequential(nn.Linear(params.hidden_size, params.hidden_size),
-                                    nn.Tanh())
-
-        self.mlm = MaskLM(params)
-        self.nsp = NextSentencePred(params)
 
         self.vocab_size = 21128
 
         self.criterion = modules.SmoothedCrossEntropyLoss(
             params.label_smoothing)
+
+        with utils.scope(name):
+            self.encoder = BERTEncoder(params)
+            self.hidden = nn.Sequential(nn.Linear(params.hidden_size, params.hidden_size),
+                                        nn.Tanh())
+
+            self.mlm = MaskLM(params)
+            self.nsp = NextSentencePred(params)
 
     def forward(self, tokens, segments, bias, mlm_weights, nsp_y, mlm_y,
                 pred_positions=None):
@@ -133,7 +141,45 @@ class BERTModel(modules.Module):
 
         l = mlm_l + nsp_l
 
-        return mlm_l, nsp_l, l
+        mlm_ac, mlm_total, mlm_precision, nsp_ac, nsp_total, nsp_precision = self.cal_precision(mlm_y, mlm_y_hat, nsp_y, nsp_y_hat)
+
+        return mlm_l, nsp_l, l,mlm_precision,nsp_precision
+
+    @staticmethod
+    def cal_precision(mlm_y, mlm_y_hat, nsp_y, nsp_y_hat):
+        nsp_y_hat = torch.nn.functional.softmax(nsp_y_hat, dim=1)
+        mlm_y_hat = torch.nn.functional.softmax(mlm_y_hat, dim=2)
+
+        nsp_res = []
+        for example in nsp_y_hat:
+            if example[0] > example[1]:
+                nsp_res.append(0)
+            else:
+                nsp_res.append(1)
+        nsp_res = torch.tensor(nsp_res)
+        nsp_ac = 0
+        nsp_total = nsp_y.shape[0]
+        for i in range(nsp_y.shape[0]):
+            if nsp_y[i] == nsp_res[i]:
+                nsp_ac += 1
+        nsp_precision = nsp_ac * 1.0 / nsp_total
+
+        mlm_ac = 0
+        mlm_total = 0
+        mlm_res = []
+        for example in mlm_y_hat:
+            mlm_res.append(torch.max(example, 1)[1])
+        # mlm_res = torch.tensor(mlm_res)
+        for i in range(mlm_y.shape[0]):
+            for j in range(len(mlm_y[i])):
+                if mlm_y[i][j] == 0:
+                    break
+                if mlm_y[i][j] == mlm_res[i][j]:
+                    mlm_ac += 1
+                mlm_total += 1
+        mlm_precision = mlm_ac * 1.0 / mlm_total
+
+        return mlm_ac, mlm_total, mlm_precision, nsp_ac, nsp_total, nsp_precision
 
     @staticmethod
     def base_params():
