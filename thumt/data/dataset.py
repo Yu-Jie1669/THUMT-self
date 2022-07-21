@@ -151,7 +151,7 @@ class BucketDataset(Dataset):
                  batch_sizes: List[int], pad: int = 0, min_length: int = -1,
                  max_length: int = 10000):
         if not self._check_type(dataset.element_spec):
-            raise ValueError("The input dataset must produces an example of "
+            raise ValueError("The input samples must produces an example of "
                              "`List[int]` or `Tuple[List[int], ...]`")
 
         self._dataset = dataset
@@ -240,12 +240,12 @@ class BucketDataset(Dataset):
 
     def set_inputs(self, datasets: Tuple[Dataset]) -> None:
         if len(datasets) != 1:
-            raise ValueError("``datasets'' must be a tuple with one dataset.")
+            raise ValueError("``datasets'' must be a tuple with one samples.")
 
         dataset = datasets[0]
 
         if not self._check_type(dataset.element_spec):
-            raise ValueError("The input dataset must produces an example of "
+            raise ValueError("The input samples must produces an example of "
                              "`List[int]` or `Tuple[List[int], ...]`")
 
         self._dataset = dataset
@@ -274,7 +274,7 @@ class FilterDataset(Dataset):
 
     def __init__(self, dataset: Dataset, min_len: int, max_len: int):
         if dataset.element_spec.elem_type is not List[int]:
-            raise ValueError("The input dataset must produces an example of "
+            raise ValueError("The input samples must produces an example of "
                              "`List[int]`.")
 
         self._dataset = dataset
@@ -311,7 +311,7 @@ class FilterDataset(Dataset):
 
     def set_inputs(self, datasets: Tuple[Dataset]) -> None:
         if len(datasets) != 1:
-            raise ValueError("``datasets'' must be a tuple with one dataset.")
+            raise ValueError("``datasets'' must be a tuple with one samples.")
 
         self._dataset = datasets[0]
 
@@ -321,7 +321,7 @@ class LookupDataset(Dataset):
     def __init__(self, dataset: Dataset, vocabulary: Vocabulary,
                  unk_id : int = -1):
         if dataset.element_spec.elem_type is not List[bytes]:
-            raise ValueError("The input dataset must produces an example of "
+            raise ValueError("The input samples must produces an example of "
                              "`List[bytes]`.")
         self._dataset = dataset
         self._vocab = vocabulary
@@ -356,7 +356,7 @@ class LookupDataset(Dataset):
 
     def set_inputs(self, datasets: Tuple[Dataset]) -> None:
         if len(datasets) != 1:
-            raise ValueError("``datasets'' must be a tuple with one dataset.")
+            raise ValueError("``datasets'' must be a tuple with one samples.")
 
         self._dataset = datasets[0]
 
@@ -473,7 +473,7 @@ class RepeatDataset(Dataset):
 
     def set_inputs(self, datasets: Tuple[Dataset]) -> None:
         if len(datasets) != 1:
-            raise ValueError("``datasets'' must be a tuple with one dataset.")
+            raise ValueError("``datasets'' must be a tuple with one samples.")
 
         self._dataset = datasets[0]
 
@@ -515,7 +515,7 @@ class ShardDataset(Dataset):
 
     def set_inputs(self, datasets: Tuple[Dataset]) -> None:
         if len(datasets) != 1:
-            raise ValueError("``datasets'' must be a tuple with one dataset.")
+            raise ValueError("``datasets'' must be a tuple with one samples.")
 
         self._dataset = datasets[0]
 
@@ -556,7 +556,7 @@ class TokenizedLineDataset(Dataset):
         elem_spec = dataset.element_spec
 
         if elem_spec.elem_type is not bytes or elem_spec.shape != "[]":
-            raise ValueError("TokenizedLineDataset only accepts a dataset with"
+            raise ValueError("TokenizedLineDataset only accepts a samples with"
                               " ElementSpec(bytes, '[None]')")
 
         self._dataset = dataset
@@ -598,7 +598,7 @@ class TokenizedLineDataset(Dataset):
 
     def set_inputs(self, datasets: Tuple[Dataset]) -> None:
         if len(datasets) != 1:
-            raise ValueError("``datasets'' must be a tuple with one dataset.")
+            raise ValueError("``datasets'' must be a tuple with one samples.")
 
         self._dataset = datasets[0]
 

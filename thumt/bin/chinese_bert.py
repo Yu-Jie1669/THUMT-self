@@ -21,7 +21,7 @@ from torch.utils.data import DataLoader
 
 import thumt.data as data
 
-import thumt.dataset as dataset
+import thumt.samples as samples
 import thumt.models as models
 import thumt.optimizers as optimizers
 import thumt.utils as utils
@@ -441,16 +441,16 @@ def main(args):
 
     t = time.time()
 
-    train_dataset = dataset.FilmDataset(input_path=params.input, max_len=512, params=params,
-                          vocab_path=params.vocab)  # vocab 需要绝对路径
+    train_dataset = samples.FilmDataset(input_path=params.input, max_len=512, params=params,
+                                        vocab_path=params.vocab)  # vocab 需要绝对路径
     train_loader = DataLoader(dataset=train_dataset, batch_size=params.batch_size, shuffle=True)
     t = time.time() - t
     print("train_data load successfully  (%.3f sec)" % t)
 
     if params.validation:
         t = time.time()
-        eval_dataset = dataset.FilmDataset(input_path=params.validation, max_len=512, params=params,
-                                   vocab_path=params.vocab)
+        eval_dataset = samples.FilmDataset(input_path=params.validation, max_len=512, params=params,
+                                           vocab_path=params.vocab)
         eval_loader = DataLoader(dataset=eval_dataset, batch_size=params.batch_size, shuffle=False)
         t = time.time() - t
         print("dev_data load successfully  (%.3f sec)" % t)
