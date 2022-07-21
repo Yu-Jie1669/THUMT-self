@@ -1,6 +1,6 @@
-conda init
-
-conda activate py37
+#conda init
+#
+#conda activate py37
 
 python ../bin/chinese_bert.py \
         --input ../../data/chinese/train_data.txt \
