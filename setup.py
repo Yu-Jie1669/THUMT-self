@@ -5,6 +5,9 @@
 from setuptools import find_packages
 from setuptools import setup
 
+
+find_packages()
+
 setup(
     name="thumt",
     version="1.2.0",

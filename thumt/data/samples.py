@@ -1,3 +1,7 @@
+# coding=utf-8
+# Copyright 2017-Present The THUMT Authors
+
+
 import random
 import re
 
@@ -5,8 +9,7 @@ import torch
 from torch.utils.data import Dataset
 from transformers import BertTokenizer
 
-import thumt.data
-
+from thumt.data.vocab import Vocabulary
 
 class FilmDataset(Dataset):
 
@@ -89,7 +92,7 @@ class FilmDataset(Dataset):
 
     @staticmethod
     def replace_mlm_tokens(tokens, candidate_pred_positions, num_mlm_pred,
-                           vocab: thumt.data.Vocabulary):
+                           vocab: Vocabulary):
         """
         Args:
             tokens: BERT输入序列的词元的列表 ids
@@ -123,7 +126,7 @@ class FilmDataset(Dataset):
                 (mlm_pred_position, tokens[mlm_pred_position]))
         return mlm_input_tokens, pred_positions_and_labels
 
-    def get_mlm_data(self, tokens, vocab: thumt.data.Vocabulary):
+    def get_mlm_data(self, tokens, vocab: Vocabulary):
         candidate_pred_positions = []
 
         cls_id = self.vocab[b'[CLS]']

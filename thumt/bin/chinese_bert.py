@@ -19,12 +19,12 @@ import torch
 import torch.distributed as dist
 from torch.utils.data import DataLoader
 
-import thumt.data as data
-
 import thumt.models as models
 import thumt.optimizers as optimizers
 import thumt.utils as utils
 import thumt.utils.summary as summary
+
+import thumt.data as data
 
 
 def parse_args(args=None):
@@ -441,7 +441,7 @@ def main(args):
     t = time.time()
 
     train_dataset = data.FilmDataset(input_path=params.input, max_len=512, params=params,
-                                        vocab_path=params.vocab)  # vocab 需要绝对路径
+                                     vocab_path=params.vocab)  # vocab 需要绝对路径
     train_loader = DataLoader(dataset=train_dataset, batch_size=params.batch_size, shuffle=True)
     t = time.time() - t
     print("train_data load successfully  (%.3f sec)" % t)
@@ -449,7 +449,7 @@ def main(args):
     if params.validation:
         t = time.time()
         eval_dataset = data.FilmDataset(input_path=params.validation, max_len=512, params=params,
-                                           vocab_path=params.vocab)
+                                        vocab_path=params.vocab)
         eval_loader = DataLoader(dataset=eval_dataset, batch_size=params.batch_size, shuffle=False)
         t = time.time() - t
         print("dev_data load successfully  (%.3f sec)" % t)
