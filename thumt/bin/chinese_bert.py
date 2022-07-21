@@ -11,23 +11,21 @@ import glob
 import logging
 import os
 import re
-import six
 import socket
 import time
+
+import six
 import torch
+import torch.distributed as dist
 from torch.utils.data import DataLoader
-from transformers import BertTokenizer
 
 import thumt.data as data
-import torch.distributed as dist
+
+import thumt.dataset as dataset
 import thumt.models as models
 import thumt.optimizers as optimizers
 import thumt.utils as utils
 import thumt.utils.summary as summary
-
-# input_path = "../../data/chinese/film.txt"
-# vocab_path = "../../data/chinese/vocab.txt"
-import thumt.dataset as dataset
 
 
 def parse_args(args=None):
