@@ -4,3 +4,4 @@
 from thumt.data.dataset import Dataset, ElementSpec, MapFunc, TextLineDataset
 from thumt.data.pipeline import MTPipeline
 from thumt.data.vocab import Vocabulary
+from thumt.data.samples import FilmDataset
