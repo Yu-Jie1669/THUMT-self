@@ -426,12 +426,15 @@ def main(args):
     trainable_flags = print_variables(model, params.pattern,
                                       dist.get_rank() == 0)
 
+
     dataset = data.MTPipeline.get_train_dataset(params.input, params)
+    print("train ok")
 
     if params.validation:
         sorted_key, eval_dataset = data.MTPipeline.get_infer_dataset(
             params.validation, params)
         references = load_references(params.references)
+        print("eval ok")
     else:
         sorted_key = None
         eval_dataset = None
