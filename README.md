@@ -691,3 +691,16 @@ class EmoBertModel(modules.Module):
         return EmoBertModel.base_params()
 
 ```
+
+emo_train.py 中加载预训练模型
+```python
+    # 加载预训练模型
+    if params.checkpoint:
+        pretrained_dict = torch.load(params.checkpoint)
+        pretrained_dict=pretrained_dict['model']
+        model_dict = model.state_dict()
+        # 将pretrained_dict里不属于model_dict的键剔除掉
+        pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict}
+        model_dict.update(pretrained_dict)  # 利用预训练模型的参数，更新模型
+        model.load_state_dict(model_dict)
+```
