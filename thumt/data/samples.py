@@ -13,7 +13,14 @@ from thumt.data.vocab import Vocabulary
 
 
 def get_tokens_and_segments(tokens_a, tokens_b=None):
-    """获取输入序列的词元及其片段索引"""
+    '''
+    Args:
+        tokens_a:
+        tokens_b:
+
+    Returns: segment_position
+
+    '''
     tokens = tokens_a
     # 0和1分别标记片段A和B
     segments = [0] * (len(tokens_a))
@@ -33,18 +40,20 @@ class FilmDataset(Dataset):
 
         self.vocab = params.vocabulary['source']
 
+        # encode 出来前缀自带 [CLS] 后缀自带 [SEP]，这边调的是BERTTokenizer
         self.input_ids = self.encode(max_len, vocab_path, paragraphs)
-        # encode 出来前缀自带 [CLS] 后缀自带 [SEP]
 
         # 获取下一句子预测任务的数据
         examples = []
 
         # examples->[(tokens(id), segments, is_next) * len(example)]
         for paragraph_ids in self.input_ids:
+            # get_nsp_data根据BERT论文中的做法 50%正例，50%负例
             examples.extend(self.get_nsp_data(
                 paragraph_ids, self.input_ids, max_len))
 
         # 获得MASK任务数据
+        # 也是根据论文中做法 0.15 再分0.8 0.1 0.1
         examples = [(self.get_mlm_data(tokens, self.vocab)
                      + (segments, is_next))
                     for tokens, segments, is_next in examples]
@@ -53,7 +62,7 @@ class FilmDataset(Dataset):
         #            [],...]
         # label:id
 
-        # 填充输入
+        # 填充到统一维度
         (self.all_token_ids, self.all_segments, self.valid_lens,
          self.all_pred_positions, self.all_mlm_weights,
          self.all_mlm_labels, self.nsp_labels, self.attention_mask) = self.pad_bert_inputs(
@@ -174,6 +183,9 @@ class FilmDataset(Dataset):
 
     @staticmethod
     def cut_sent(para):
+        """
+        将段落分成句子
+        """
         para = re.sub('([。！？\?])([^”’])', r"\1\n\2", para)  # 单字符断句符
         para = re.sub('(\.{6})([^”’])', r"\1\n\2", para)  # 英文省略号
         para = re.sub('(\…{2})([^”’])', r"\1\n\2", para)  # 中文省略号
@@ -238,7 +250,7 @@ class EmoDataset(Dataset):
         text_pd = text_pd.apply(self.remove_useless())
         text_list = list(text_pd)
 
-        labels = list(df['情感倾向'].astype('int')+1)
+        labels = list(df['情感倾向'].astype('int') + 1)
 
         text_list, labels = self.remove_null(text_list, labels)
 

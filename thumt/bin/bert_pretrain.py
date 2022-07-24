@@ -342,8 +342,6 @@ def load_references(pattern):
 
 
 def evaluate(model, eval_loader):
-    # # 将模型放到服务器上
-    # model.to(device)
     # 设定模式为验证模式
     model.eval()
     # 设定不会有梯度的改变仅作验证
