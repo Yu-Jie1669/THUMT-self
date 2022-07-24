@@ -13,14 +13,14 @@ from thumt.data.vocab import Vocabulary
 
 
 def get_tokens_and_segments(tokens_a, tokens_b=None):
-    '''
+    """
     Args:
         tokens_a:
         tokens_b:
 
     Returns: segment_position
 
-    '''
+    """
     tokens = tokens_a
     # 0和1分别标记片段A和B
     segments = [0] * (len(tokens_a))
