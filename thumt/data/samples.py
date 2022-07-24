@@ -1,7 +1,6 @@
 # coding=utf-8
 
 
-
 import random
 import re
 
@@ -31,8 +30,6 @@ class FilmDataset(Dataset):
             paragraphs = f.readlines()
         # paragraphs ->[paragraph_count,sentences_count]
         paragraphs = [self.cut_sent(paragraph) for paragraph in paragraphs]
-        # # all sentences
-        # sentences = [sentence for paragraph in paragraphs for sentence in paragraph]
 
         self.vocab = params.vocabulary['source']
 
@@ -52,9 +49,6 @@ class FilmDataset(Dataset):
                      + (segments, is_next))
                     for tokens, segments, is_next in examples]
 
-        # for i in range(len(examples)):
-        #     examples[i][0] = self.input_ids[i]
-
         # examples->[[mlm_input_token_ids, pred_positions, mlm_pred_labels,segments,is_next],
         #            [],...]
         # label:id
@@ -64,12 +58,6 @@ class FilmDataset(Dataset):
          self.all_pred_positions, self.all_mlm_weights,
          self.all_mlm_labels, self.nsp_labels, self.attention_mask) = self.pad_bert_inputs(
             examples, max_len, self.vocab)
-
-        # 填充输入
-        # (self.all_token_ids, self.all_segments, self.valid_lens,
-        #  self.all_pred_positions, self.all_mlm_weights,
-        #  self.all_mlm_labels, self.nsp_labels) = BERTModel.pad_bert_inputs(
-        #     examples, max_len, self.vocab)
 
     def __getitem__(self, idx):
         return self.all_token_ids[idx], self.all_segments[idx], \
@@ -114,17 +102,18 @@ class FilmDataset(Dataset):
             vocab:
         Returns:
         """
-        # 为遮蔽语言模型的输入创建新的词元副本，其中输入可能包含替换的“[mask]”或随机词元
+
+        # 为遮蔽语言模型的输入创建新的词元副本
         mlm_input_tokens = [token for token in tokens]
         pred_positions_and_labels = []
         mask_id = vocab[b'[MASK]']
-        # 打乱后用于在遮蔽语言模型任务中获取15%的随机词元进行预测
+
         random.shuffle(candidate_pred_positions)
         for mlm_pred_position in candidate_pred_positions:
             if len(pred_positions_and_labels) >= num_mlm_pred:
                 break
             masked_token = None
-            # 80%将词替换为“[MASK]”词元
+            # 80%将词替换为“[MASK]”
             if random.random() < 0.8:
                 masked_token = mask_id
             else:
@@ -146,12 +135,11 @@ class FilmDataset(Dataset):
         sep_id = self.vocab[b'[SEP]']
 
         for i, token in enumerate(tokens):
-            # 在遮蔽语言模型任务中不会预测特殊词元
             if token in [cls_id, sep_id]:
                 continue
             candidate_pred_positions.append(i)
 
-        # 遮蔽语言模型任务中预测15%的随机词元
+        # 15%的随机词元
         num_mlm_preds = max(1, round(len(tokens) * 0.15))
         # mlm_input_token是已经掩蔽过的句子
         mlm_input_token, pred_positions_and_labels = self.replace_mlm_tokens(
@@ -190,9 +178,8 @@ class FilmDataset(Dataset):
         para = re.sub('(\.{6})([^”’])', r"\1\n\2", para)  # 英文省略号
         para = re.sub('(\…{2})([^”’])', r"\1\n\2", para)  # 中文省略号
         para = re.sub('([。！？\?][”’])([^，。！？\?])', r'\1\n\2', para)
-        # 如果双引号前有终止符，那么双引号才是句子的终点，把分句符\n放到双引号后，注意前面的几句都小心保留了双引号
-        para = para.rstrip()  # 段尾如果有多余的\n就去掉它
-        # 很多规则中会考虑分号;，但是这里我把它忽略不计，破折号、英文双引号等同样忽略，需要的再做些简单调整即可。
+        # 如果双引号前有终止符，那么双引号才是句子的终点，把分句符\n放到双引号后
+        para = para.rstrip()  # 段尾如果有多余的\n
         return para.split("\n")
 
     @staticmethod
@@ -247,8 +234,13 @@ class FilmDataset(Dataset):
 class EmoDataset(Dataset):
     def __init__(self, input_path, params, vocab_path, max_len):
         df = pd.read_csv(input_path)
-        text_list = list(df['微博中文内容'].astype('str'))
-        labels = list(df['情感倾向'].astype('int'))
+        text_pd = df['微博中文内容'].astype('str')
+        text_pd = text_pd.apply(self.remove_useless())
+        text_list = list(text_pd)
+
+        labels = list(df['情感倾向'].astype('int')+1)
+
+        text_list, labels = self.remove_null(text_list, labels)
 
         self.input_ids = self.encode(max_len=max_len, vocab_path=vocab_path,
                                      text_list=text_list)
@@ -299,12 +291,12 @@ class EmoDataset(Dataset):
         Returns:
         """
 
-        all_token_ids,  valid_lens, mask = [], [], []
+        all_token_ids, valid_lens, mask = [], [], []
         all_labels = []
 
         pad_id = vocab['[PAD]']
 
-        for (token_ids,  label) in examples:
+        for (token_ids, label) in examples:
             all_token_id = torch.tensor(token_ids + [pad_id] * (
                     max_len - len(token_ids)), dtype=torch.long)
             all_token_ids.append(all_token_id)
@@ -318,3 +310,26 @@ class EmoDataset(Dataset):
             all_labels.append(torch.tensor(label, dtype=torch.long))
 
         return all_token_ids, valid_lens, mask, all_labels
+
+    @staticmethod
+    def remove_useless(text):
+        # 去掉转发对象 回复对象
+        rule1 = re.compile("//@.*:|回复@.*:")
+        # 去掉?展开全文c O网页链接 ...
+        rule2 = re.compile("\?展开全文c|O网页链接\?*|原标题：|转发微博|网易链接|查看图片")
+        # 去掉 #,【】...
+        rule3 = re.compile("[#【】]")
+        text = rule1.sub(" ", text)
+        text = rule2.sub(" ", text)
+        text = rule3.sub(" ", text)
+        text = text.strip()
+        return text
+
+    @staticmethod
+    def remove_null(text_list, labels):
+        _text_list = [item for item in text_list]
+        for index, item in enumerate(text_list):
+            if item.strip() == "":
+                del _text_list[index]
+                del labels[index]
+        return _text_list, labels

@@ -116,7 +116,6 @@ def default_params():
         decode_length=50,
         validation="",
         references="",
-        pretrain="",
     )
 
     return params
@@ -178,7 +177,7 @@ def override_params(params, args):
     params.vocab = args.vocabulary or params.vocab
     params.validation = args.validation or params.validation
     params.references = args.references or params.references
-    params.pretrain = args.pretrain or params.pretrain
+    params.checkpoint = args.checkpoint or params.checkpoint
     params.parse(args.parameters.lower())
 
     params.vocabulary = {
