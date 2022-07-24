@@ -1,5 +1,4 @@
 # coding=utf-8
-# Copyright 2017-2020 The THUMT Authors
 
 from __future__ import absolute_import
 from __future__ import division
@@ -107,7 +106,7 @@ def default_params():
         keep_top_checkpoint_max=5,
         save_summary=True,
         save_checkpoint_secs=0,
-        save_checkpoint_steps=1000,
+        save_checkpoint_steps=2,
         # Validation
         eval_steps=2000,
         eval_secs=0,

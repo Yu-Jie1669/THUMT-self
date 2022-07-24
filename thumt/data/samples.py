@@ -1,15 +1,28 @@
 # coding=utf-8
-# Copyright 2017-Present The THUMT Authors
+
 
 
 import random
 import re
 
+import pandas as pd
 import torch
 from torch.utils.data import Dataset
 from transformers import BertTokenizer
 
 from thumt.data.vocab import Vocabulary
+
+
+def get_tokens_and_segments(tokens_a, tokens_b=None):
+    """获取输入序列的词元及其片段索引"""
+    tokens = tokens_a
+    # 0和1分别标记片段A和B
+    segments = [0] * (len(tokens_a))
+    if tokens_b is not None:
+        tokens += tokens_b[1:]
+        segments += [1] * (len(tokens_b) - 1)
+    return tokens, segments
+
 
 class FilmDataset(Dataset):
 
@@ -155,20 +168,9 @@ class FilmDataset(Dataset):
         if random.random() < 0.5:
             is_next = True
         else:
-            # paragraphs是三重列表的嵌套
             next_sentence = random.choice(random.choice(paragraphs))
             is_next = False
         return sentence, next_sentence, is_next
-
-    def get_tokens_and_segments(self, tokens_a, tokens_b=None):
-        """获取输入序列的词元及其片段索引"""
-        tokens = tokens_a
-        # 0和1分别标记片段A和B
-        segments = [0] * (len(tokens_a))
-        if tokens_b is not None:
-            tokens += tokens_b[1:]
-            segments += [1] * (len(tokens_b) - 1)
-        return tokens, segments
 
     def get_nsp_data(self, paragraph, paragraphs, max_len):
         nsp_data_from_paragraph = []
@@ -178,7 +180,7 @@ class FilmDataset(Dataset):
 
             if len(tokens_a) + len(tokens_b) - 1 > max_len:
                 continue
-            tokens, segments = self.get_tokens_and_segments(tokens_a, tokens_b)
+            tokens, segments = get_tokens_and_segments(tokens_a, tokens_b)
             nsp_data_from_paragraph.append((tokens, segments, is_next))
         return nsp_data_from_paragraph
 
@@ -240,3 +242,79 @@ class FilmDataset(Dataset):
 
         return (all_token_ids, all_segments, valid_lens, all_pred_positions,
                 all_mlm_weights, all_mlm_labels, nsp_labels, mask)
+
+
+class EmoDataset(Dataset):
+    def __init__(self, input_path, params, vocab_path, max_len):
+        df = pd.read_csv(input_path)
+        text_list = list(df['微博中文内容'].astype('str'))
+        labels = list(df['情感倾向'].astype('int'))
+
+        self.input_ids = self.encode(max_len=max_len, vocab_path=vocab_path,
+                                     text_list=text_list)
+        self.labels = torch.tensor(labels)
+
+        self.vocab = params.vocabulary['source']
+
+        # self.examples=[ get_tokens_and_segments(example) for example in self.input_ids ]
+        #
+        # self.tokens, self.segments = get_tokens_and_segments(self.input_ids)
+
+        # [(token,segment,label), ...]
+        self.examples = list(zip(self.input_ids, self.labels))
+
+        self.all_token_ids, self.valid_lens, self.mask, self.all_labels = self.pad_bert_inputs(
+            self.examples, max_len, self.vocab)
+
+    def __getitem__(self, idx):
+        return self.all_token_ids[idx], self.valid_lens[idx], \
+               self.mask[idx], self.all_labels[idx]
+
+    def __len__(self):
+        return len(self.input_ids)
+
+    @staticmethod
+    def encode(max_len, vocab_path, text_list):
+        # 将text_list embedding成bert模型可用的输入形式
+        # 加载分词模型
+        tokenizer = BertTokenizer.from_pretrained(vocab_path)
+        tokenizer = tokenizer(
+            text_list,
+            padding=False,
+            truncation=True,
+            max_length=max_len,
+            # return_tensors='pt'  # 返回的类型为pytorch tensor
+        )
+        input_ids = tokenizer['input_ids']
+        return input_ids
+
+    @staticmethod
+    def pad_bert_inputs(examples, max_len, vocab):
+        """
+        Args:
+            examples:
+             [(token,segment,label), ...]
+            max_len:
+            vocab:
+        Returns:
+        """
+
+        all_token_ids,  valid_lens, mask = [], [], []
+        all_labels = []
+
+        pad_id = vocab['[PAD]']
+
+        for (token_ids,  label) in examples:
+            all_token_id = torch.tensor(token_ids + [pad_id] * (
+                    max_len - len(token_ids)), dtype=torch.long)
+            all_token_ids.append(all_token_id)
+
+            valid_len = len(token_ids)
+            valid_lens.append(torch.tensor(valid_len, dtype=torch.float32))
+
+            mask_att = [1.0] * valid_len + [0.0] * (max_len - valid_len)
+            mask.append(torch.tensor(mask_att, dtype=torch.float32))
+
+            all_labels.append(torch.tensor(label, dtype=torch.long))
+
+        return all_token_ids, valid_lens, mask, all_labels

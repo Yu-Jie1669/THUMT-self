@@ -42,7 +42,11 @@ class BERTEncoder(modules.Module):
 
     def forward(self, tokens, segments, bias):
         # 输入是 词嵌入+段嵌入+位置嵌入
-        x = self.token_embedding(tokens) + self.segment_embedding(segments)
+        x = self.token_embedding(tokens)
+
+        if not segments is None:
+            x += self.segment_embedding(segments)
+
         x = self.pos_embedding(x)
 
         bias = torch.reshape(bias, (bias.shape[0], 1, 1, bias.shape[-1]))
@@ -141,9 +145,9 @@ class BERTModel(modules.Module):
 
         l = mlm_l + nsp_l
 
-        mlm_ac, mlm_total, mlm_precision, nsp_ac, nsp_total, nsp_precision = self.cal_precision(mlm_y, mlm_y_hat, nsp_y, nsp_y_hat)
-
-        return mlm_l, nsp_l, l,mlm_precision,nsp_precision
+        mlm_ac, mlm_total, mlm_precision, nsp_ac, nsp_total, nsp_precision = self.cal_precision(mlm_y, mlm_y_hat, nsp_y,
+                                                                                                nsp_y_hat)
+        return mlm_l, nsp_l, l, mlm_precision, nsp_precision
 
     @staticmethod
     def cal_precision(mlm_y, mlm_y_hat, nsp_y, nsp_y_hat):
