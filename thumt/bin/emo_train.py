@@ -71,7 +71,7 @@ def default_params():
         batch_size=512,
         fixed_batch_size=False,
         min_length=1,
-        max_length=512,
+        max_length=256,
         buffer_size=10000,
         # Initialization
         initializer_gain=1.0,
@@ -433,7 +433,7 @@ def main(args):
 
     t = time.time()
 
-    train_dataset = data.EmoDataset(input_path=params.input, max_len=512, params=params,
+    train_dataset = data.EmoDataset(input_path=params.input, max_len=params.max_length, params=params,
                                     vocab_path=params.vocab)  # vocab 需要绝对路径
     train_loader = DataLoader(dataset=train_dataset, batch_size=params.batch_size, shuffle=True)
     t = time.time() - t
@@ -441,7 +441,7 @@ def main(args):
 
     if params.validation:
         t = time.time()
-        eval_dataset = data.EmoDataset(input_path=params.validation, max_len=512, params=params,
+        eval_dataset = data.EmoDataset(input_path=params.validation, max_len=params.max_length, params=params,
                                        vocab_path=params.vocab)
         eval_loader = DataLoader(dataset=eval_dataset, batch_size=params.batch_size, shuffle=False)
         t = time.time() - t

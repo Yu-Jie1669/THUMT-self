@@ -1,5 +1,6 @@
 #### 文件目录
 
+还没有写test的部分
 
     ├─bert-train
     ├─data
@@ -10,7 +11,7 @@
     │  │  └─bert_pretrain.py BERT预训练
     │  │  └─emo_train.py 情感分析训练
     │  ├─data
-    │  │  └─samples.py 电影Dataset（BERT的mask和nsps数据） 情感Dataset
+    │  │  └─samples.py 电影Dataset（BERT的mask和nsp数据） 情感Dataset
     │  └─models
     │     └─bert.py BERT模型
     │     └─emo_bert.py 情感分类模型
